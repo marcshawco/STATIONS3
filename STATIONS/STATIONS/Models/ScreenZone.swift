@@ -9,21 +9,30 @@
 import Foundation
 
 nonisolated enum ScreenZone: String, CaseIterable, Identifiable {
-    case fullScreen
     case leftHalf, rightHalf, topHalf, bottomHalf
     case topLeft, topRight, bottomLeft, bottomRight
     case leftThird, centerThird, rightThird
-    case leftTwoThirds, rightTwoThirds
+    case leftTwoThirds, centerTwoThirds, rightTwoThirds
+    case fullScreen
 
     var id: String { rawValue }
 
+    /// Menu grouping, in display order — halves, quarters, thirds,
+    /// two-thirds, full screen.
+    static let groups: [[ScreenZone]] = [
+        [.leftHalf, .rightHalf, .topHalf, .bottomHalf],
+        [.topLeft, .topRight, .bottomLeft, .bottomRight],
+        [.leftThird, .centerThird, .rightThird],
+        [.leftTwoThirds, .centerTwoThirds, .rightTwoThirds],
+        [.fullScreen],
+    ]
+
     var label: String {
         switch self {
-        case .fullScreen: "Full Screen"
-        case .leftHalf: "Left Half"
-        case .rightHalf: "Right Half"
-        case .topHalf: "Top Half"
-        case .bottomHalf: "Bottom Half"
+        case .leftHalf: "Left"
+        case .rightHalf: "Right"
+        case .topHalf: "Top"
+        case .bottomHalf: "Bottom"
         case .topLeft: "Top Left"
         case .topRight: "Top Right"
         case .bottomLeft: "Bottom Left"
@@ -31,14 +40,17 @@ nonisolated enum ScreenZone: String, CaseIterable, Identifiable {
         case .leftThird: "Left Third"
         case .centerThird: "Center Third"
         case .rightThird: "Right Third"
-        case .leftTwoThirds: "Left Two-Thirds"
-        case .rightTwoThirds: "Right Two-Thirds"
+        case .leftTwoThirds: "Left Two Thirds"
+        case .centerTwoThirds: "Center Two Thirds"
+        case .rightTwoThirds: "Right Two Thirds"
+        case .fullScreen: "Full Screen"
         }
     }
 
     /// (x, y, width, height) as fractions of a screen's usable area, top-left origin.
     var fractions: (x: Double, y: Double, width: Double, height: Double) {
         let third = 1.0 / 3.0
+        let sixth = 1.0 / 6.0
         switch self {
         case .fullScreen: return (0, 0, 1, 1)
         case .leftHalf: return (0, 0, 0.5, 1)
@@ -53,6 +65,7 @@ nonisolated enum ScreenZone: String, CaseIterable, Identifiable {
         case .centerThird: return (third, 0, third, 1)
         case .rightThird: return (2 * third, 0, third, 1)
         case .leftTwoThirds: return (0, 0, 2 * third, 1)
+        case .centerTwoThirds: return (sixth, 0, 2 * third, 1)
         case .rightTwoThirds: return (third, 0, 2 * third, 1)
         }
     }

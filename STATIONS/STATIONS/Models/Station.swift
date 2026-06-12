@@ -17,6 +17,10 @@ nonisolated struct Station: Codable, Identifiable, Hashable {
     var color: String
     var apps: [StationApp]
     var hideOtherApps: Bool
+    /// When true, every placement resolves against the screen the station is
+    /// activated on, ignoring saved screen indexes. A "Meeting" station snaps
+    /// to whatever screen you're working on right now.
+    var placeOnActiveScreen: Bool
     var hotkey: Hotkey?
 
     init(id: UUID = UUID(),
@@ -25,6 +29,7 @@ nonisolated struct Station: Codable, Identifiable, Hashable {
          color: String = "blue",
          apps: [StationApp] = [],
          hideOtherApps: Bool = false,
+         placeOnActiveScreen: Bool = true,
          hotkey: Hotkey? = nil) {
         self.id = id
         self.name = name
@@ -32,6 +37,7 @@ nonisolated struct Station: Codable, Identifiable, Hashable {
         self.color = color
         self.apps = apps
         self.hideOtherApps = hideOtherApps
+        self.placeOnActiveScreen = placeOnActiveScreen
         self.hotkey = hotkey
     }
 
@@ -43,6 +49,7 @@ nonisolated struct Station: Codable, Identifiable, Hashable {
         color = try container.decodeIfPresent(String.self, forKey: .color) ?? "blue"
         apps = try container.decodeIfPresent([StationApp].self, forKey: .apps) ?? []
         hideOtherApps = try container.decodeIfPresent(Bool.self, forKey: .hideOtherApps) ?? false
+        placeOnActiveScreen = try container.decodeIfPresent(Bool.self, forKey: .placeOnActiveScreen) ?? true
         hotkey = try container.decodeIfPresent(Hotkey.self, forKey: .hotkey)
     }
 }

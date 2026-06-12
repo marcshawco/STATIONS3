@@ -131,17 +131,17 @@ enum WindowEngine {
             window.set(kAXPositionAttribute, point: target.origin)
             window.set(kAXSizeAttribute, size: target.size)
 
-            if let actual = frame(of: window), matches(actual, target) {
+            if let actual = frame(of: window), isWithinTolerance(actual, of: target) {
                 return true
             }
             try? await Task.sleep(for: .milliseconds(60 * attempt))
         }
 
         guard let actual = frame(of: window) else { return false }
-        return matches(actual, target)
+        return isWithinTolerance(actual, of: target)
     }
 
-    private static func matches(_ actual: CGRect, _ target: CGRect) -> Bool {
+    static func isWithinTolerance(_ actual: CGRect, of target: CGRect) -> Bool {
         abs(actual.minX - target.minX) <= tolerance
             && abs(actual.minY - target.minY) <= tolerance
             && abs(actual.width - target.width) <= tolerance
@@ -177,6 +177,20 @@ enum WindowEngine {
                y: primaryScreenHeight - rect.minY - rect.height,
                width: rect.width,
                height: rect.height)
+    }
+
+    /// The screen the user is working on right now: the one under the mouse.
+    /// Stations that adapt to the active screen resolve their zones here.
+    static func activeScreenIndex() -> Int {
+        let mouse = NSEvent.mouseLocation
+        let screens = NSScreen.screens
+        if let index = screens.firstIndex(where: { NSMouseInRect(mouse, $0.frame, false) }) {
+            return index
+        }
+        if let main = NSScreen.main, let index = screens.firstIndex(of: main) {
+            return index
+        }
+        return 0
     }
 
     /// Index into NSScreen.screens of the screen holding most of `rect` (AppKit coordinates).

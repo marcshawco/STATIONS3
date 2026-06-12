@@ -65,9 +65,22 @@ final class StationActivator: ObservableObject {
             launch(bundleId: app.bundleId)
         }
 
+        // A station that adapts resolves every zone against the screen the
+        // user is on right now; pinned stations keep their saved screens.
+        let screenOverride: Int? = station.placeOnActiveScreen ? WindowEngine.activeScreenIndex() : nil
+
         // Place windows in station order. Each app is waited on by condition
         // (has a real window), not by a guessed delay.
+        struct PlacedWindow {
+            let resultIndex: Int
+            let appName: String
+            let app: NSRunningApplication
+            let window: AXUIElement
+            let target: CGRect
+        }
+        var placed: [PlacedWindow] = []
         var firstPlacedApp: NSRunningApplication?
+
         for app in station.apps {
             if notInstalled.contains(app.bundleId) {
                 results.append(AppResult(appName: app.name, outcome: .failed("Not installed")))
@@ -79,18 +92,51 @@ final class StationActivator: ObservableObject {
                 results.append(AppResult(appName: app.name, outcome: .failed("No window appeared")))
                 continue
             }
-            guard let target = WindowEngine.targetRect(for: app.placement) else {
+
+            var placement = app.placement
+            if let screenOverride {
+                placement.screenIndex = screenOverride
+            }
+            guard let target = WindowEngine.targetRect(for: placement) else {
                 results.append(AppResult(appName: app.name, outcome: .failed("No screen available")))
                 continue
             }
 
             if await WindowEngine.setFrame(target, on: window, of: running) {
                 results.append(AppResult(appName: app.name, outcome: .placed))
+                placed.append(PlacedWindow(
+                    resultIndex: results.count - 1,
+                    appName: app.name,
+                    app: running,
+                    window: window,
+                    target: target
+                ))
                 if firstPlacedApp == nil {
                     firstPlacedApp = running
                 }
             } else {
                 results.append(AppResult(appName: app.name, outcome: .failed("Window would not stay in place")))
+            }
+        }
+
+        // Settle pass: some apps re-adjust their own windows moments after
+        // launch or session restore. Check everything once more and re-place
+        // whatever drifted, so the layout is right every single time.
+        if !placed.isEmpty {
+            statusLine = "Checking layout…"
+            try? await Task.sleep(for: .milliseconds(400))
+            for item in placed {
+                if let actual = WindowEngine.frame(of: item.window),
+                   WindowEngine.isWithinTolerance(actual, of: item.target) {
+                    continue
+                }
+                statusLine = "Re-placing \(item.appName)…"
+                if await WindowEngine.setFrame(item.target, on: item.window, of: item.app) == false {
+                    results[item.resultIndex] = AppResult(
+                        appName: item.appName,
+                        outcome: .failed("Window drifted and would not go back")
+                    )
+                }
             }
         }
 

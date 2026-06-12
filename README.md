@@ -4,15 +4,17 @@ A macOS menu bar app that saves and restores desktop layouts. Arrange your windo
 
 This is attempt 3. Attempts 1 and 2 died for the same reason: window control was unreliable. This version was built engine-first — the window engine shipped alone in v0.1.0, and features only get added on top of it.
 
-**Version:** 0.5.0 · **Requires:** macOS 15.0+
+**Version:** 0.6.0 · **Requires:** macOS 15.0+
 
 ## Features
 
 - **Capture**: snapshot visible app windows into a named station — all of them, or a hand-picked subset
 - **Activate**: launch missing apps, wait for their windows, place each one, then report per-app ✓/✗ with a reason
+- **Adapts to your screen**: by default a station snaps to the screen you activate it on, whatever its size — build "Meeting" once (Zoom top-left, Mail bottom-left, Chrome right half) and it works at your desk and on the laptop
+- **Settle pass**: after placing everything, the engine re-checks each window and re-places any that drifted — apps that resize themselves after launch don't get to ruin the layout
 - **Station editor**: rename, SF Symbol icon, color, reorder, delete with confirm, live layout preview
-- **Zones**: assign each app a preset — halves, quarters, thirds, two-thirds, full screen (14 total) — or keep its exact captured spot
-- **Per-app control**: add any installed app, remove one, re-capture one window's position, pick its screen
+- **Zones**: halves, quarters, thirds, two-thirds (including centered), full screen — 15 presets with glyph previews in the menu — or keep a window's exact captured spot
+- **Per-app control**: add any installed app, remove one, re-capture one window's position, pin to a screen (for stations that don't adapt)
 - **Global hotkeys**: assign a shortcut to a station; works without opening the menu
 - **Hide other apps**: optional per-station tidy-up on activation
 - **Launch at login** and an active-station hint in the menu bar icon

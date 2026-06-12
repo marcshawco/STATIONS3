@@ -172,6 +172,8 @@ struct StationDetailView: View {
 
                 Toggle("Hide other apps when activating", isOn: $station.hideOtherApps)
 
+                Toggle("Place on the screen it's activated on", isOn: $station.placeOnActiveScreen)
+
                 LabeledContent("Global shortcut") {
                     HotkeyRecorderField(hotkey: $station.hotkey)
                 }
@@ -185,6 +187,7 @@ struct StationDetailView: View {
                 ForEach($station.apps) { $app in
                     StationAppRow(
                         app: $app,
+                        showsScreenPicker: !station.placeOnActiveScreen,
                         onRecapture: { recapture($app.wrappedValue) },
                         onRemove: { station.apps.removeAll { $0.id == app.id } }
                     )
@@ -289,8 +292,12 @@ struct StationDetailView: View {
 struct StationLayoutPreview: View {
     let station: Station
 
+    // An adapting station draws everything in one screen rectangle, because
+    // that's what activation does. Pinned stations preview screen 1 only.
     private var mainScreenApps: [StationApp] {
-        station.apps.filter { $0.placement.screenIndex == 0 }
+        station.placeOnActiveScreen
+            ? station.apps
+            : station.apps.filter { $0.placement.screenIndex == 0 }
     }
 
     private var otherScreenCount: Int {
@@ -343,6 +350,7 @@ struct StationLayoutPreview: View {
 
 struct StationAppRow: View {
     @Binding var app: StationApp
+    var showsScreenPicker: Bool
     var onRecapture: () -> Void
     var onRemove: () -> Void
 
@@ -358,7 +366,7 @@ struct StationAppRow: View {
 
             Spacer()
 
-            if NSScreen.screens.count > 1 {
+            if showsScreenPicker && NSScreen.screens.count > 1 {
                 Picker("", selection: $app.placement.screenIndex) {
                     ForEach(0..<NSScreen.screens.count, id: \.self) { index in
                         Text("Screen \(index + 1)").tag(index)
@@ -391,14 +399,19 @@ struct StationAppRow: View {
 
     private var zoneMenu: some View {
         Menu {
-            ForEach(ScreenZone.allCases) { zone in
-                Button {
-                    app.placement = zone.placement(screenIndex: app.placement.screenIndex)
-                } label: {
-                    if ScreenZone.matching(app.placement) == zone {
-                        Label(zone.label, systemImage: "checkmark")
-                    } else {
-                        Text(zone.label)
+            ForEach(Array(ScreenZone.groups.enumerated()), id: \.offset) { index, group in
+                if index > 0 {
+                    Divider()
+                }
+                ForEach(group) { zone in
+                    Button {
+                        app.placement = zone.placement(screenIndex: app.placement.screenIndex)
+                    } label: {
+                        Label {
+                            Text(zone.label)
+                        } icon: {
+                            Image(nsImage: ZoneGlyphs.image(for: zone))
+                        }
                     }
                 }
             }
