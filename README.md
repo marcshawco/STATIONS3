@@ -1,18 +1,22 @@
 # STATIONS
 
-A macOS menu bar app that saves and restores desktop layouts. Arrange your windows once, capture them as a "station," and bring the whole setup back with one click.
+A macOS menu bar app that saves and restores desktop layouts. Arrange your windows once, capture them as a "station," and bring the whole setup back with one click — or one keystroke.
 
-This is attempt 3. Attempts 1 and 2 died for the same reason: window control was unreliable. This version is built engine-first — nothing gets added until placing windows works every time.
+This is attempt 3. Attempts 1 and 2 died for the same reason: window control was unreliable. This version was built engine-first — the window engine shipped alone in v0.1.0, and features only get added on top of it.
 
-**Version:** 0.1.0 · **Requires:** macOS 15.0+ · **Status:** core engine + minimal UI
+**Version:** 0.5.0 · **Requires:** macOS 15.0+
 
-## What it does (v0.1.0)
+## Features
 
-- **Capture**: snapshot every visible app window into a named station
-- **Activate**: launch missing apps, wait for their windows, place each one, then report per-app success or failure
-- **Menu bar only**: no Dock icon, everything lives in the menu bar popover
-
-That's the whole feature list, on purpose. Hotkeys, zones, browser URLs, and settings come back only after the engine proves itself.
+- **Capture**: snapshot visible app windows into a named station — all of them, or a hand-picked subset
+- **Activate**: launch missing apps, wait for their windows, place each one, then report per-app ✓/✗ with a reason
+- **Station editor**: rename, SF Symbol icon, color, reorder, delete with confirm, live layout preview
+- **Zones**: assign each app a preset — halves, quarters, thirds, two-thirds, full screen (14 total) — or keep its exact captured spot
+- **Per-app control**: add any installed app, remove one, re-capture one window's position, pick its screen
+- **Global hotkeys**: assign a shortcut to a station; works without opening the menu
+- **Hide other apps**: optional per-station tidy-up on activation
+- **Launch at login** and an active-station hint in the menu bar icon
+- **Menu bar only**: no Dock icon
 
 ## Why the engine is different this time
 
@@ -26,7 +30,7 @@ The old attempts failed in five specific ways. Each has a fix in `Core/WindowEng
 | Grabbed `windows.first`, sometimes a dialog | Filter to standard windows only |
 | Two coordinate systems, two code paths | One conversion (AppKit ↔ Accessibility), one place |
 
-Failures are never silent: activation shows a ✓ or ✗ with a reason for every app.
+Zones obey the same discipline: a zone is just a preset placement, so zoned windows ride the exact same set-verify-retry path as captured ones. Failures are never silent.
 
 ## Build and run
 
@@ -38,41 +42,55 @@ The app is not sandboxed. It can't be — sandboxed apps aren't allowed to move 
 
 ## Usage
 
-1. Arrange your windows the way you like
-2. Click the menu bar icon, type a name, hit **Capture**
-3. Later: click the station's ▶ row to bring it all back
+- **Quick capture**: arrange windows → menu bar icon → type a name → **Capture**
+- **Activate**: click a station's row, or press its hotkey
+- **Edit**: menu bar → **Edit Stations…** — rename, icon, color, zones, apps, shortcut
+- **Selective capture**: in the editor, **+ → From Current Layout…**, untick what you don't want
+- **Hide other apps**: right-click a station row in the menu, or use the editor toggle
+- **Launch at login**: editor → **General**
 
 ## Data
 
-Stations are plain JSON you can edit by hand:
+Stations are plain JSON you can edit by hand (while the app is quit):
 
 ```
 ~/Library/Application Support/STATIONS/stations.json
 ```
 
-A placement stores fractions of the screen's usable area (`x`, `y` from top-left, plus `width`/`height`), so stations survive screen-size changes.
+A placement stores fractions of the screen's usable area (`x`, `y` from top-left, plus `width`/`height`), so stations survive screen-size changes. Decoding is tolerant: missing optional keys fall back to defaults instead of breaking the library.
 
 ## Project structure
 
 ```
 STATIONS/STATIONS/
-├── STATIONSApp.swift            # Menu bar app entry
-├── Models/Station.swift         # Station, StationApp, Placement
+├── STATIONSApp.swift            # Menu bar + Settings scenes, hotkey bootstrap
+├── Models/
+│   ├── Station.swift            # Station, StationApp, Placement (tolerant decoding)
+│   ├── ScreenZone.swift         # 14 zone presets → Placements
+│   └── Hotkey.swift             # Key code + Carbon modifiers
 ├── Core/
 │   ├── AX.swift                 # Typed wrappers over the C Accessibility API
 │   ├── WindowEngine.swift       # Find, place, verify windows (the heart)
 │   ├── StationActivator.swift   # Launch → wait → place → report
-│   ├── LayoutCapture.swift      # Snapshot current desktop
-│   └── StationStore.swift       # JSON persistence
-└── MenuBar/MenuBarContentView.swift
+│   ├── LayoutCapture.swift      # Snapshot desktop, full or selective
+│   ├── StationStore.swift       # JSON persistence
+│   ├── HotkeyCenter.swift       # Carbon global hotkey registration
+│   └── InstalledApps.swift      # App scanner for the picker
+├── MenuBar/MenuBarContentView.swift
+└── Views/
+    ├── SettingsRootView.swift   # Stations + General tabs, launch at login
+    ├── StationsEditorView.swift # Sidebar, detail form, app rows, preview
+    ├── AppPickerSheet.swift
+    ├── CaptureSheet.swift
+    ├── HotkeyRecorderField.swift
+    └── Palette.swift            # Icon + color choices
 ```
 
-## Next (only after the engine is trusted)
+## Next
 
-1. Global hotkeys per station
-2. Edit a station (rename, drop apps) without re-capturing
-3. Browser URLs
-4. Multi-window apps
+1. Browser URLs (open specific pages in positioned windows)
+2. Multi-window apps (two VS Code windows, two browsers)
+3. Polish: real app icon, onboarding, notarized build
 
 ## License
 

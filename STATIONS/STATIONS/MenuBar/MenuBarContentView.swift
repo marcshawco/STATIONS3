@@ -3,14 +3,22 @@
 //  STATIONS
 //
 
+import Combine
 import SwiftUI
 
 struct MenuBarContentView: View {
     @ObservedObject var store: StationStore
     @ObservedObject var activator: StationActivator
 
+    @Environment(\.openSettings) private var openSettings
+
     @State private var newStationName = ""
     @State private var trusted = false
+    @State private var pendingDelete: Station?
+
+    // Re-check trust while the popover is open so the warning clears the
+    // moment access is granted, not on the next open.
+    private let trustTick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -37,6 +45,23 @@ struct MenuBarContentView: View {
         .frame(width: 320)
         .onAppear {
             trusted = WindowEngine.isTrusted(prompt: false)
+        }
+        .onReceive(trustTick) { _ in
+            trusted = WindowEngine.isTrusted(prompt: false)
+        }
+        .confirmationDialog(
+            "Delete “\(pendingDelete?.name ?? "")”?",
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            )
+        ) {
+            Button("Delete", role: .destructive) {
+                if let station = pendingDelete {
+                    store.remove(station)
+                }
+                pendingDelete = nil
+            }
         }
     }
 
@@ -91,15 +116,21 @@ struct MenuBarContentView: View {
                 }
             } label: {
                 HStack {
-                    Image(systemName: "play.circle.fill")
-                        .foregroundStyle(.tint)
+                    Image(systemName: station.icon)
+                        .foregroundStyle(Palette.color(station.color))
+                        .frame(width: 18)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(station.name)
-                        Text("\(station.apps.count) app\(station.apps.count == 1 ? "" : "s")")
+                        Text(subtitle(for: station))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
+                    if activator.activeStationID == station.id {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Palette.color(station.color))
+                            .help("Last activated station")
+                    }
                 }
                 .contentShape(Rectangle())
             }
@@ -107,7 +138,7 @@ struct MenuBarContentView: View {
             .disabled(activator.isActivating)
 
             Button {
-                store.remove(station)
+                pendingDelete = station
             } label: {
                 Image(systemName: "trash")
                     .foregroundStyle(.secondary)
@@ -115,6 +146,24 @@ struct MenuBarContentView: View {
             .buttonStyle(.plain)
             .help("Delete \(station.name)")
         }
+        .contextMenu {
+            Toggle("Hide other apps on activate", isOn: Binding(
+                get: { station.hideOtherApps },
+                set: { enabled in
+                    var updated = station
+                    updated.hideOtherApps = enabled
+                    store.update(updated)
+                }
+            ))
+        }
+    }
+
+    private func subtitle(for station: Station) -> String {
+        let apps = "\(station.apps.count) app\(station.apps.count == 1 ? "" : "s")"
+        if let hotkey = station.hotkey {
+            return "\(apps) · \(hotkey.display)"
+        }
+        return apps
     }
 
     private var captureRow: some View {
@@ -171,10 +220,14 @@ struct MenuBarContentView: View {
 
     private var footer: some View {
         HStack {
+            Button("Edit Stations…") {
+                openSettings()
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            Spacer()
             Button("Quit STATIONS") {
                 NSApplication.shared.terminate(nil)
             }
-            Spacer()
         }
     }
 }

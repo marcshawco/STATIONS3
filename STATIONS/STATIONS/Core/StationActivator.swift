@@ -11,9 +11,13 @@ import Combine
 
 @MainActor
 final class StationActivator: ObservableObject {
+    static let shared = StationActivator()
+    private init() {}
+
     @Published private(set) var isActivating = false
     @Published private(set) var statusLine = ""
     @Published private(set) var results: [AppResult] = []
+    @Published private(set) var activeStationID: UUID?
 
     /// How long one app gets to produce a window before we give up on it.
     private let windowTimeout: TimeInterval = 15
@@ -90,8 +94,29 @@ final class StationActivator: ObservableObject {
             }
         }
 
+        if station.hideOtherApps {
+            statusLine = "Hiding other apps…"
+            hideApps(except: Set(station.apps.map(\.bundleId)))
+        }
+
+        if firstPlacedApp != nil {
+            activeStationID = station.id
+        }
+
         // The first app in the station is its anchor; give it focus.
         firstPlacedApp?.activate()
+    }
+
+    private func hideApps(except keep: Set<String>) {
+        for app in NSWorkspace.shared.runningApplications {
+            guard app.activationPolicy == .regular,
+                  let bundleId = app.bundleIdentifier,
+                  bundleId != Bundle.main.bundleIdentifier,
+                  !keep.contains(bundleId) else {
+                continue
+            }
+            app.hide()
+        }
     }
 
     private func runningApp(bundleId: String) -> NSRunningApplication? {
